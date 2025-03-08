@@ -1,0 +1,48 @@
+- window structure
+- setup socket
+- poll to wait for connection
+- after connection, go to main fsm function for connection
+- first state is establishment
+- second state is use
+- third is teardown and clean up
+- change hardcoded values for sent values: window size, file name, etc.
+
+
+
+
+
+
+
+- Window Structure
+    - create space for it
+    - add packet to it
+
+
+
+
+
+- current starts at 0, and it goes the value that is next to send
+
+
+
+PDU Header:
+
+ 4 bytes  2 bytes    1 byte
+| seq # | checksum | flag |
+
+
+establish packet: 
+
+    4 bytes            2 bytes (1-1400)     1 bytes         ??bytes
+|   window-size    |    buffer size    |   filename len  |   filename   |
+
+
+
+
+FSM
+
+windowopen -> windowopen: keep sending
+windowopen -> windowopen_RR: update window
+windowclosed -> srej: resend srej'd packet
+windowclosed-> rr: update window
+window-> teardown
