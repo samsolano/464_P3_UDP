@@ -31,6 +31,8 @@ void createChild(int socketNum, struct sockaddr_in6 client, int file, int window
 void resendPacket(int responseNumber, int socketNum, struct sockaddr_in6 client, int file);
 void sendDataPacket(int socketNum, struct sockaddr_in6 client, int file, int bufferSize);
 void processPacket(int socketNum, struct sockaddr_in6 client, int file);
+void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen);
+int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen);
 
 void processClient(int socketNum);
 
@@ -60,71 +62,76 @@ void processClients(int socketNum) {
 	struct sockaddr_in6 client;
 	int clientAddrLen = sizeof(client);	
 	uint8_t packet[MAXBUF];
+	uint8_t recvPacket[MAXBUF];
 	int file;
 
-	uint8_t windowSize[4];
-	uint8_t bufferSize[2];
+	int windowSize = 0;
+	int16_t bufferSize = 0;
 
 	while (1) {
 
-		pollCall(-1);
+		pollCall(-1);																										// block till connection
 
-		printf("received packet\n");
-		//receive filename establishment
-		// safeRecvfrom(socketNum, buffer, MAXBUF, 0, (struct sockaddr *) &client, &clientAddrLen);
+		int dataLen = 0;
+		if ((dataLen = recvAndCheck(socketNum, packet, MAXBUF, (struct sockaddr *) &client, &clientAddrLen)) < 0) {			//receive the fn packet and check checksum
 
-
-		int dataLen = safeRecvfrom(socketNum, packet, MAXBUF, 0, (struct sockaddr *) &client, &clientAddrLen);
-
-
-		printf(" received Len: %d \'%s\'\n", dataLen, packet);
-
-
-		printf("\n");
-		for(int i = 0; i < dataLen; i++) {
-
-			printf("%x ", packet[i]);
+			continue;
 		}
-		printf("\n");
 
+		printf("fn packet received\n");
 
+		// printf("\n");
+		// for(int i = 0; i < dataLen; i++) {
+
+		// 	printf("%x ", packet[i]);
+		// }
+		// printf("\n");
 
 		uint8_t fileName[packet[13]];
 		memset(fileName, 0, packet[13]);
 
-		memcpy(windowSize, packet + 7, 4);
-		memcpy(bufferSize, packet + 11, 2);
+		memcpy(&windowSize, packet + 7, 4);
+		memcpy(&bufferSize, packet + 11, 2);
 		memcpy(fileName, packet + 14, packet[13]);
-		fileName[packet[13]] = '\0'
+		fileName[packet[13]] = 0;
 
-		windowSize = ntohl(*windowSize);
-		bufferSize = ntohl(*bufferSize);
+		printf("filename: %s, windowSize: %d, bufferSize: %d \n", fileName, windowSize, bufferSize);							// store values from packet
 
-		printf("filename: %s, windowSize: %04x, bufferSize: %02x\n", fileName, windowSize, bufferSize);
-
-		return;
-
-
-
-
-
-
-		// file = fopen((const char *) fileName, "r");
-		file = open("test.txt", O_RDONLY);
+		file = open((const char *) fileName, O_RDONLY);
 		if (file == -1) {
 			perror("Error opening file");
-			return;
-		}
-		else if ( (int)*bufferSize > 1400) {
-			perror("buffer too large");
-			return;
+			uint8_t packet[7];
+			createPDU(packet, NULL, 0, 34);
+			safeSendto(socketNum, packet, 7, 0, (struct sockaddr *) &client, sizeof(client));									// send error packet if fail
 		}
 		else {
+			printf("file opened\n");
+			// if successful packet send fn ack and then wait for final ack (flag 33)
+			createPDU(packet, NULL, 0, 9);																					// create success packet
 
-			createChild(socketNum, client, file, *windowSize, *bufferSize);
+			int flagReceived = 0;
+
+			while (flagReceived != 33) {
+
+
+				sendWithRetries(socketNum, packet, 7, (struct sockaddr *) &client, sizeof(client));								// send success packet
+
+
+				while (recvAndCheck(socketNum, recvPacket, 7, (struct sockaddr *) &client, &clientAddrLen) < 0) {				// make sure successful received ack	
+				
+					sendWithRetries(socketNum, packet, 7, (struct sockaddr *) &client, sizeof(client));							// if bad checksum resend packet
+				}
+				
+				flagReceived = recvPacket[6];																					// if successful checksum and packet has flag 33
+				printf("packet sent, flag: %d\n", flagReceived);
+
+			}
+
+
+
+			createChild(socketNum, client, file, windowSize, bufferSize);
+			exit(0);
 		}
-
-
 	}
 }
 
@@ -150,7 +157,15 @@ void childProcess(int socketNum, struct sockaddr_in6 client, int file, int windo
 	// setupPollSet();
 	// addToPollSet(socketNumber);
 
-	uint8_t packet[MAXBUF];
+	uint8_t packet[7];
+	createPDU(packet, NULL, 0, 34);
+	safeSendto(socketNum, packet, 7, 0, (struct sockaddr *) &client, sizeof(client));									// send error packet if fail
+	
+	printf("successfully in child\n");
+	return;
+
+	
+	// uint8_t packet[MAXBUF];
 	createPDU(packet, NULL, 0, 9);
 	safeSendto(socketNum, packet, 7, 0, (struct sockaddr *) &client, sizeof(client)); //send fileName Ack in child
 
@@ -209,7 +224,7 @@ void sendDataPacket(int socketNum, struct sockaddr_in6 client, int file, int buf
 	
 	memset(dataPacket, 0, sizeof(dataPacket));
 	createPDU(dataPacket, packetPayload, bytes, 16);
-	addToWindow(dataPacket, bufferSize + 7);
+	addToWindow((char *) dataPacket, bufferSize + 7);
 	safeSendto(socketNum, dataPacket, bytes + 7, 0, (struct sockaddr *) &client, sizeof(client)); // 0 is for flags
 
 	// poll to see if there is a response with 0 wait time, and process rr if there is one
@@ -252,7 +267,41 @@ void setup(int socketNum) {
 
 }
 
+void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen) {
+	int returnValue = 0;
+	int numOfTries = 0;
+	int pollResult = 0;
 
+	while (numOfTries < 10) {																			// try max of 10 times
+
+		safeSendto(socketNum, buf, (size_t) len, 0, srcAddr, (socklen_t) addrLen);
+		numOfTries++;
+		if (pollCall(1000) > 0) {																		// if socket is ready to receive then set variable to exit while 
+			numOfTries = 69;
+		}
+	}
+
+	if (numOfTries == 69) {
+		return;
+	}
+
+	perror("Packet resent 10 times with no response: program ending");
+	exit(-1);
+}
+
+
+int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen) {
+
+	int returnValue = safeRecvfrom(socketNum, buf, len, 0, srcAddr, addrLen);
+	
+	//check the checksum
+	// unsigned short checksumValue = 0;
+	// memcpy(&checksumValue, buf + 4, 2);
+
+	// if wrong return -1
+
+	return returnValue;
+}
 
 
 
@@ -260,16 +309,17 @@ void createPDU(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t payloadLen,
 
 	memset(dataPacket, 0, MAXBUF);
 	int networkSequence = htonl(seqNum);
+	uint8_t flagInput = flag;
 
 	memcpy(dataPacket, &networkSequence, 4);
 	dataPacket[4] = 0;
 	dataPacket[5] = 0;
-	memcpy(dataPacket + 6, &flag, 1);
+	memcpy(dataPacket + 6, &flagInput, 1);
 
 	if (payloadLen > 0) { memcpy(dataPacket + 7, packetPayload, payloadLen); }
 
-	unsigned short payloadChecksum = in_cksum((unsigned short *)packetPayload, payloadLen);
-	memcpy(dataPacket + 4, &payloadChecksum, 2);
+	unsigned short checksum = in_cksum((unsigned short *)dataPacket, 7 + payloadLen);
+	memcpy(dataPacket + 4, &checksum, 2);
 }
 
 int checkArgs(int argc, char *argv[])

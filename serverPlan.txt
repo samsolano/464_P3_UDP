@@ -46,3 +46,16 @@ windowopen -> windowopen_RR: update window
 windowclosed -> srej: resend srej'd packet
 windowclosed-> rr: update window
 window-> teardown
+
+
+
+
+
+
+
+
+Flags:
+
+33: rcopy ack of server acknowledge
+34: error flag
+

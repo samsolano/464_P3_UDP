@@ -1,6 +1,6 @@
 #include "window.h"
 
-uint32_t windowSize = 0;
+int windowSize = 0;
 uint32_t lower = 0;
 uint32_t current = 0;
 uint32_t upper = 0;

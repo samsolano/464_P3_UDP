@@ -20,13 +20,17 @@
 #include "safeUtil.h"
 #include "libcpe464/checksum.h"
 #include "cpe464.h"
+#include "pollLib.h"
+#include "window.h"
 
-#define MAXBUF 80
 
 void establishConnection(int socketNum, struct sockaddr_in6 * server);
 int readFromStdin(char * buffer);
 int checkArgs(int argc, char * argv[]);
 void createPDUSERVERFIX(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t payloadLen, uint8_t flag);
+void clientUse(int socketNum, struct sockaddr_in6 * server);
+void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen);
+int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen);
 
 
 void talkToServer(int socketNum, struct sockaddr_in6 * server);
@@ -42,7 +46,7 @@ int seqNum = 0;
 int main (int argc, char *argv[])
  {
 	int socketNum = 0;				
-	struct sockaddr_in6 server;		// Supports 4 and 6 but requires IPv6 struct
+	struct sockaddr_in6 server;
 	int portNumber = 0;
 	
 	portNumber = checkArgs(argc, argv);
@@ -60,16 +64,17 @@ int main (int argc, char *argv[])
 }
 
 
-void establishConnection(int socketNum, struct sockaddr_in6 * server)
-{
+void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 
-	// windowlen - 4, buffersize - 2, file len - 1, filename up to 100
+	setupPollSet();																			// create poll set and put main socket in
+	addToPollSet(socketNum);
 
-	uint8_t dataPacket[bufferSize + 7];
+	uint8_t recvPacket[7];
 	uint8_t payload[bufferSize];
 	memset(payload, 0, bufferSize);
-
-	int fileLen = strlen((const char *) requestedFile);
+	
+	int fileLen = strlen((const char *) requestedFile);										// take terminal args and put them into packet
+	uint8_t sendPacket[fileLen + 14];
 
 	memcpy(payload, &windowLen, 4);
 	memcpy(payload + 4, &bufferSize, 2);
@@ -77,17 +82,118 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server)
 	memcpy(payload + 7, requestedFile, payload[6]);
 
 
-	createPDUSERVERFIX(dataPacket, payload, 7 + fileLen, 8);
+	createPDUSERVERFIX(sendPacket, payload, 7 + fileLen, 8);								// add app pdu header to packet, 8 is initialize flag
 
-	// printf("\n");
-	// for(int i = 0; i < (14 + fileLen); i++) {
+	printf("\n");
+	for(int i = 0; i < (14 + fileLen); i++) {
 
-	// 	printf("%x ", dataPacket[i]);
-	// }
-	// printf("\n");
+		printf("%x ", sendPacket[i]);
+	}
+	printf("\n");
+
+	int flagReceived = 0;
+	int bytes_received = 0;
+	int serverAddrLen = sizeof(struct sockaddr_in6);
+ 
+	while (flagReceived != 9 && flagReceived != 34) {																			// if different flags received retry whole process
+
+		sendWithRetries(socketNum, sendPacket, 14 + fileLen, (struct sockaddr *) server, sizeof(struct sockaddr_in6)); 			// send inital fn packet
+
+		while (recvAndCheck(socketNum, recvPacket, 7, (struct sockaddr *) server, &serverAddrLen) < 0) {						//receive fn ack from server and verify checksum
+			
+			sendWithRetries(socketNum, sendPacket, 14 + fileLen, (struct sockaddr *) server, sizeof(struct sockaddr_in6));	// if checksum fails, keep sending back packets
+		}
+		flagReceived = recvPacket[6];
+
+		printf("fn ack received, flag received should be 9: %d\n", flagReceived);
+
+		if (flagReceived == 9)	{																								// successful
+			
+			createPDUSERVERFIX(sendPacket, NULL, 0, 33);		
+				
+			while (flagReceived != 16) {																						// check that flag now is a normal data packet
+
+				printf("1\n");
+				sendWithRetries(socketNum, sendPacket, 7, (struct sockaddr *) server, serverAddrLen);		// send final ack to server
+				printf("2\n");
+				while ((bytes_received = recvAndCheck(socketNum, recvPacket, bufferSize + 7, (struct sockaddr *) server, &serverAddrLen)) < 0) {						
+				
+					sendWithRetries(socketNum, sendPacket, 7, (struct sockaddr *) server, sizeof(struct sockaddr_in6));
+				}
+
+				flagReceived = recvPacket[6];
+			}
+
+
+			setupWindow(windowLen);
+			addToWindow((char *) recvPacket, bytes_received);
+			seqNum++;
+			clientUse(socketNum, server);
+			return;
+			
+		}
+		else if (flagReceived == 34) {																								//file not found
+
+			fprintf(stderr, "Error: file %s not found\n", requestedFile);
+			exit(-1);
+		}
+	}
+
+}
+
+void clientUse(int socketNum, struct sockaddr_in6 * server) {
+
+	return;
+}
+
+
+
+
+
+void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen) {
+	int returnValue = 0;
+	int numOfTries = 0;
+	int pollResult = 0;
+
+	while (numOfTries < 10) {																			// try max of 10 times
+
+		safeSendto(socketNum, buf, (size_t) len, 0, srcAddr, addrLen);
+		numOfTries++;
+		printf("%d: Packet Sent\n", numOfTries);
+		if (pollCall(1000) > 0) {																		// if socket is ready to receive then set variable to exit while 
+			numOfTries = 69;
+		}
+	}
+
+	if (numOfTries == 69) {
+		return;
+	}
+
+	perror("Packet resent 10 times with no response: program ending");
+	exit(-1);
+}
+
+
+int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen) {
+
+	int returnValue = safeRecvfrom(socketNum, buf, len, 0, srcAddr, addrLen);
+	
+	//check the checksum
+	// unsigned short checksumValue = 0;
+	// memcpy(&checksumValue, buf + 4, 2);
+
+	// if wrong return -1
+
+
+	printf("\n");
+	for(int i = 0; i < len; i++) {
+
+		printf("%x ", ((uint8_t *)buf)[i] );
+	}
+	printf("\n");
 	
 
-	safeSendto(socketNum, dataPacket, 14 + fileLen, 0, (struct sockaddr *) server, sizeof(struct sockaddr_in6));
+	return returnValue;
 }
 
 
@@ -95,18 +201,19 @@ void createPDUSERVERFIX(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t pa
 
 	// seqnum - 4, checksum - 2, flag - 1
 
-	memset(dataPacket, 0, MAXBUF);
-	// int networkSequence = htonl(seqNum);
+	memset(dataPacket, 0, payloadLen + 7);
+	int networkSequence = htonl(seqNum);
+	uint8_t flagInput = flag;
 
-	memcpy(dataPacket, &seqNum, 4);
+	memcpy(dataPacket, &networkSequence, 4);
 	dataPacket[4] = 0;
 	dataPacket[5] = 0;
-	memcpy(dataPacket + 6, &flag, 1);
+	memcpy(dataPacket + 6, &flagInput, 1);
 
 	if (payloadLen > 0) { memcpy(dataPacket + 7, packetPayload, payloadLen); }
 
-	unsigned short payloadChecksum = in_cksum((unsigned short *)packetPayload, payloadLen);
-	memcpy(dataPacket + 4, &payloadChecksum, 2);
+	unsigned short checksum = in_cksum((unsigned short *)dataPacket, 7 + payloadLen);
+	memcpy(dataPacket + 4, &checksum, 2);
 }
 
 
@@ -122,6 +229,13 @@ int checkArgs(int argc, char * argv[])
 
 	int portNumber = 0;
 
+	if (strlen(argv[1]) > 100 || strlen(argv[2]) > 100 ||  atoi(argv[3]) > 1073741824 || atoi(argv[4]) > 1400) {				// check file names, and values in bounds
+
+		perror("Rcopy Input Parameter Error: ");
+		exit(-1);
+	}
+
+	memset(requestedFile, 0, 101);
 	strcpy((char *) requestedFile, argv[1]);
 	strcpy((char *) toFile, argv[2]);
 	windowLen = atoi(argv[3]);
@@ -146,30 +260,30 @@ int checkArgs(int argc, char * argv[])
 
 
 
-int readFromStdin(char * buffer)
-{
-	char aChar = 0;
-	int inputLen = 0;        
+// int readFromStdin(char * buffer)
+// {
+// 	char aChar = 0;
+// 	int inputLen = 0;        
 	
-	// Important you don't input more characters than you have space 
-	buffer[0] = '\0';
-	printf("Enter data: ");
-	while (inputLen < (MAXBUF - 1) && aChar != '\n')
-	{
-		aChar = getchar();
-		if (aChar != '\n')
-		{
-			buffer[inputLen] = aChar;
-			inputLen++;
-		}
-	}
+// 	// Important you don't input more characters than you have space 
+// 	buffer[0] = '\0';
+// 	printf("Enter data: ");
+// 	while (inputLen < (MAXBUF - 1) && aChar != '\n')
+// 	{
+// 		aChar = getchar();
+// 		if (aChar != '\n')
+// 		{
+// 			buffer[inputLen] = aChar;
+// 			inputLen++;
+// 		}
+// 	}
 	
-	// Null terminate the string
-	buffer[inputLen] = '\0';
-	inputLen++;
+// 	// Null terminate the string
+// 	buffer[inputLen] = '\0';
+// 	inputLen++;
 	
-	return inputLen;
-}
+// 	return inputLen;
+// }
 
 
 
