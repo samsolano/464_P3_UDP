@@ -84,12 +84,12 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 
 	createPDUSERVERFIX(sendPacket, payload, 7 + fileLen, 8);								// add app pdu header to packet, 8 is initialize flag
 
-	printf("\n");
-	for(int i = 0; i < (14 + fileLen); i++) {
+	// printf("\n");
+	// for(int i = 0; i < (14 + fileLen); i++) {
 
-		printf("%x ", sendPacket[i]);
-	}
-	printf("\n");
+	// 	printf("%x ", sendPacket[i]);
+	// }
+	// printf("\n");
 
 	int flagReceived = 0;
 	int bytes_received = 0;
@@ -124,9 +124,9 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 				flagReceived = recvPacket[6];
 			}
 
-
-			setupWindow(windowLen);
-			addToWindow((char *) recvPacket, bytes_received);
+			//add first data packet here and move to use portion now, also try opening to-file and give error if cant open like in server
+			setupWindow(windowLen);																								//when data is received setup window and store data packet
+			addToWindow((char *) recvPacket, bytes_received);																	//move now to use portion
 			seqNum++;
 			clientUse(socketNum, server);
 			return;
@@ -143,6 +143,7 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 
 void clientUse(int socketNum, struct sockaddr_in6 * server) {
 
+	printf("ready for data\n");
 	return;
 }
 
@@ -185,12 +186,12 @@ int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, i
 	// if wrong return -1
 
 
-	printf("\n");
-	for(int i = 0; i < len; i++) {
+	// printf("\n");
+	// for(int i = 0; i < len; i++) {
 
-		printf("%x ", ((uint8_t *)buf)[i] );
-	}
-	printf("\n");
+	// 	printf("%x ", ((uint8_t *)buf)[i] );
+	// }
+	// printf("\n");
 	
 
 	return returnValue;

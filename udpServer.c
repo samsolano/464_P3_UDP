@@ -26,15 +26,16 @@
 void processClients(int socketNumber);
 int checkArgs(int argc, char *argv[]);
 void createPDU(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t payloadLen, uint8_t flag);
-void childProcess(int socketNum, struct sockaddr_in6 client, int file, int windowSize, int bufferSize);
-void createChild(int socketNum, struct sockaddr_in6 client, int file, int windowSize, int bufferSize);
-void resendPacket(int responseNumber, int socketNum, struct sockaddr_in6 client, int file);
-void sendDataPacket(int socketNum, struct sockaddr_in6 client, int file, int bufferSize);
-void processPacket(int socketNum, struct sockaddr_in6 client, int file);
+void childProcess(int socketNum, struct sockaddr * client, int file, int windowSize, int bufferSize);
+void createChild(int socketNum, struct sockaddr *client, int file, int windowSize, int bufferSize);
+void resendPacket(int responseNumber, int socketNum, struct sockaddr *client, int file);
+void sendDataPacket(int socketNum, struct sockaddr *client, int file, int bufferSize);
+void processPacket(int socketNum, struct sockaddr *client, int file);
 void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen);
 int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen);
 
-void processClient(int socketNum);
+
+void windowTesting();
 
 
 int seqNum = 0;
@@ -44,13 +45,15 @@ int main( int argc, char *argv[]  )
 	int socketNum = 0;				
 	int portNumber = 0;
 
-	portNumber = checkArgs(argc, argv);
+	// portNumber = checkArgs(argc, argv);
 		
-	socketNum = udpServerSetup(portNumber);
+	// socketNum = udpServerSetup(portNumber);
 
-	processClients(socketNum);
+	// processClients(socketNum);
 
-	close(socketNum);
+	// close(socketNum);
+
+	windowTesting();
 	
 	return 0;
 }
@@ -78,7 +81,6 @@ void processClients(int socketNum) {
 			continue;
 		}
 
-		printf("fn packet received\n");
 
 		// printf("\n");
 		// for(int i = 0; i < dataLen; i++) {
@@ -95,7 +97,7 @@ void processClients(int socketNum) {
 		memcpy(fileName, packet + 14, packet[13]);
 		fileName[packet[13]] = 0;
 
-		printf("filename: %s, windowSize: %d, bufferSize: %d \n", fileName, windowSize, bufferSize);							// store values from packet
+		// printf("filename: %s, windowSize: %d, bufferSize: %d \n", fileName, windowSize, bufferSize);							// store values from packet
 
 		file = open((const char *) fileName, O_RDONLY);
 		if (file == -1) {
@@ -103,19 +105,17 @@ void processClients(int socketNum) {
 			uint8_t packet[7];
 			createPDU(packet, NULL, 0, 34);
 			safeSendto(socketNum, packet, 7, 0, (struct sockaddr *) &client, sizeof(client));									// send error packet if fail
+			continue;
 		}
 		else {
-			printf("file opened\n");
-			// if successful packet send fn ack and then wait for final ack (flag 33)
-			createPDU(packet, NULL, 0, 9);																					// create success packet
-
+			
 			int flagReceived = 0;
+
+			createPDU(packet, NULL, 0, 9);																					// create success packet
 
 			while (flagReceived != 33) {
 
-
 				sendWithRetries(socketNum, packet, 7, (struct sockaddr *) &client, sizeof(client));								// send success packet
-
 
 				while (recvAndCheck(socketNum, recvPacket, 7, (struct sockaddr *) &client, &clientAddrLen) < 0) {				// make sure successful received ack	
 				
@@ -123,19 +123,16 @@ void processClients(int socketNum) {
 				}
 				
 				flagReceived = recvPacket[6];																					// if successful checksum and packet has flag 33
-				printf("packet sent, flag: %d\n", flagReceived);
 
 			}
 
-
-
-			createChild(socketNum, client, file, windowSize, bufferSize);
+			createChild(socketNum,(struct sockaddr *) &client, file, windowSize, bufferSize);
 			exit(0);
 		}
 	}
 }
 
-void createChild(int socketNum, struct sockaddr_in6 client, int file, int windowSize, int bufferSize) {
+void createChild(int socketNum, struct sockaddr * client, int file, int windowSize, int bufferSize) {
 
 	// pid_t pid = fork();
 
@@ -150,24 +147,15 @@ void createChild(int socketNum, struct sockaddr_in6 client, int file, int window
 }
 
 
-void childProcess(int socketNum, struct sockaddr_in6 client, int file, int windowSize, int bufferSize) {
+void childProcess(int socketNum, struct sockaddr * client, int file, int windowSize, int bufferSize) {
 
 											//will come back when forking children
 	// close(socketNum)
 	// setupPollSet();
 	// addToPollSet(socketNumber);
 
-	uint8_t packet[7];
-	createPDU(packet, NULL, 0, 34);
-	safeSendto(socketNum, packet, 7, 0, (struct sockaddr *) &client, sizeof(client));									// send error packet if fail
 	
-	printf("successfully in child\n");
-	return;
-
-	
-	// uint8_t packet[MAXBUF];
-	createPDU(packet, NULL, 0, 9);
-	safeSendto(socketNum, packet, 7, 0, (struct sockaddr *) &client, sizeof(client)); //send fileName Ack in child
+	uint8_t packet[bufferSize + 7];
 
 	uint8_t state = USE;
 	uint8_t failNumber = 0;
@@ -212,7 +200,7 @@ void childProcess(int socketNum, struct sockaddr_in6 client, int file, int windo
 	}
 }
 
-void sendDataPacket(int socketNum, struct sockaddr_in6 client, int file, int bufferSize) {
+void sendDataPacket(int socketNum, struct sockaddr * client, int file, int bufferSize) {
 
 	uint8_t packetPayload[bufferSize];
 	uint8_t dataPacket[bufferSize + 7];
@@ -225,7 +213,7 @@ void sendDataPacket(int socketNum, struct sockaddr_in6 client, int file, int buf
 	memset(dataPacket, 0, sizeof(dataPacket));
 	createPDU(dataPacket, packetPayload, bytes, 16);
 	addToWindow((char *) dataPacket, bufferSize + 7);
-	safeSendto(socketNum, dataPacket, bytes + 7, 0, (struct sockaddr *) &client, sizeof(client)); // 0 is for flags
+	safeSendto(socketNum, dataPacket, bytes + 7, 0, client, sizeof(client)); // 0 is for flags
 
 	// poll to see if there is a response with 0 wait time, and process rr if there is one
 
@@ -236,7 +224,7 @@ void sendDataPacket(int socketNum, struct sockaddr_in6 client, int file, int buf
 	}
 }
 
-void processPacket(int socketNum, struct sockaddr_in6 client, int file) {
+void processPacket(int socketNum, struct sockaddr *client, int file) {
 
 	uint8_t buffer[MAXBUF];
 	safeRecvfrom(socketNum, buffer, MAXBUF, 0, NULL, NULL);
@@ -255,7 +243,7 @@ void processPacket(int socketNum, struct sockaddr_in6 client, int file) {
 }
 
 
-void resendPacket(int responseNumber, int socketNum, struct sockaddr_in6 client, int file) {
+void resendPacket(int responseNumber, int socketNum, struct sockaddr *client, int file) {
 
 	return;
 
@@ -274,7 +262,7 @@ void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAdd
 
 	while (numOfTries < 10) {																			// try max of 10 times
 
-		safeSendto(socketNum, buf, (size_t) len, 0, srcAddr, (socklen_t) addrLen);
+		safeSendto(socketNum, buf, (size_t) len, 0, srcAddr, addrLen);
 		numOfTries++;
 		if (pollCall(1000) > 0) {																		// if socket is ready to receive then set variable to exit while 
 			numOfTries = 69;
@@ -307,7 +295,7 @@ int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, i
 
 void createPDU(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t payloadLen, uint8_t flag) {
 
-	memset(dataPacket, 0, MAXBUF);
+	memset(dataPacket, 0, payloadLen + 7);
 	int networkSequence = htonl(seqNum);
 	uint8_t flagInput = flag;
 
@@ -342,27 +330,31 @@ int checkArgs(int argc, char *argv[])
 }
 
 
-// void processClient(int socketNum)
-// {
-// 	int dataLen = 0; 
-// 	char buffer[MAXBUF -6];	  
-// 	struct sockaddr_in6 client;		
-// 	int clientAddrLen = sizeof(client);	
 
-// 	printf("now waiting\n");
-	
-// 	buffer[0] = '\0';
-// 	while (buffer[0] != '.')
-// 	{
-// 		dataLen = safeRecvfrom(socketNum, buffer, MAXBUF - 7, 0, (struct sockaddr *) &client, &clientAddrLen);
-	
-// 		printf("Received message from client with ");
-// 		printIPInfo(&client);
-// 		printf(" Len: %d \'%s\'\n", dataLen, buffer);
+void windowTesting() {
 
-// 		// // just for fun send back to client number of bytes received
-// 		// sprintf(buffer, "bytes: %d", dataLen);
-// 		// safeSendto(socketNum, buffer, strlen(buffer)+1, 0, (struct sockaddr *) & client, clientAddrLen);
+	setupWindow(5);
 
-// 	}
-// }
+	uint8_t packet1[7];
+	uint8_t packet2[7];
+	uint8_t packet3[7];
+	uint8_t packet4[7];
+	uint8_t packet5[7];
+	uint8_t packet6[7];
+	uint8_t packet7[7];
+	uint8_t packet8[7];
+	createPDU(packet1, NULL, 0, 1);
+	createPDU(packet2, NULL, 0, 2);
+	createPDU(packet3, NULL, 0, 3);
+	createPDU(packet4, NULL, 0, 4);
+	createPDU(packet5, NULL, 0, 5);
+	createPDU(packet6, NULL, 0, 6);
+	createPDU(packet7, NULL, 0, 7);
+	createPDU(packet8, NULL, 0, 8);
+
+	addToWindow((char *) packet, 7);
+
+
+
+
+}
