@@ -14,9 +14,10 @@ void setLower(uint32_t new);
 void setCurrent(uint32_t new);
 void setUpper(uint32_t new);
 void setupWindow(int windowLen);
-void addToWindow(char *pdu, uint16_t pduLen);
+void addToWindow(char *pdu, uint16_t pduLen, int seqNum);
 uint8_t *getWindowEntry(uint32_t seqNum);
 uint8_t windowOpen();
+void printAll();
 
 typedef struct {
     uint8_t fullPdu[MAXBUF];

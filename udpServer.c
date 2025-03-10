@@ -45,15 +45,15 @@ int main( int argc, char *argv[]  )
 	int socketNum = 0;				
 	int portNumber = 0;
 
-	// portNumber = checkArgs(argc, argv);
+	portNumber = checkArgs(argc, argv);
 		
-	// socketNum = udpServerSetup(portNumber);
+	socketNum = udpServerSetup(portNumber);
 
-	// processClients(socketNum);
+	processClients(socketNum);
 
-	// close(socketNum);
+	close(socketNum);
 
-	windowTesting();
+	// windowTesting();
 	
 	return 0;
 }
@@ -158,7 +158,7 @@ void childProcess(int socketNum, struct sockaddr * client, int file, int windowS
 	uint8_t packet[bufferSize + 7];
 
 	uint8_t state = USE;
-	uint8_t failNumber = 0;
+	
 
 	while (1) {
 
@@ -166,7 +166,7 @@ void childProcess(int socketNum, struct sockaddr * client, int file, int windowS
 
 		uint8_t packetPayload[bufferSize];
 		uint8_t dataPacket[bufferSize + 7];
-		
+		uint8_t failNumber = 0;
 
 		while(windowOpen()) {
 
@@ -192,10 +192,9 @@ void childProcess(int socketNum, struct sockaddr * client, int file, int windowS
 				exit(-1);
 			}
 			else {
+				//send lowest packet in window
 				failNumber++;
 			}
-
-
 		}
 	}
 }
@@ -205,15 +204,19 @@ void sendDataPacket(int socketNum, struct sockaddr * client, int file, int buffe
 	uint8_t packetPayload[bufferSize];
 	uint8_t dataPacket[bufferSize + 7];
 
-	int bytes = read(file, packetPayload, bufferSize);
+	int bytes = read(file, packetPayload, bufferSize);												// fill payload with bytes from file
 
 	if (bytes == 0) { printf("no more bytes\n"); return; }
 	else if(bytes == -1) { perror("Error reading file"); }
+	if (bytes < bufferSize) {
+		//handle last packet
+	}
 	
-	memset(dataPacket, 0, sizeof(dataPacket));
-	createPDU(dataPacket, packetPayload, bytes, 16);
-	addToWindow((char *) dataPacket, bufferSize + 7);
-	safeSendto(socketNum, dataPacket, bytes + 7, 0, client, sizeof(client)); // 0 is for flags
+	memset(dataPacket, 0, sizeof(dataPacket));														// clear data packet
+	createPDU(dataPacket, packetPayload, bytes, 16);												// fill packet with header and payload
+	addToWindow((char *) dataPacket, bufferSize + 7, seqNum++);										// add packet to payload
+	
+	safeSendto(socketNum, dataPacket, bytes + 7, 0, client, sizeof(client)); 
 
 	// poll to see if there is a response with 0 wait time, and process rr if there is one
 
@@ -226,15 +229,24 @@ void sendDataPacket(int socketNum, struct sockaddr * client, int file, int buffe
 
 void processPacket(int socketNum, struct sockaddr *client, int file) {
 
-	uint8_t buffer[MAXBUF];
-	safeRecvfrom(socketNum, buffer, MAXBUF, 0, NULL, NULL);
+	uint8_t buffer[11];
+	int clientAddrLen = sizeof(client);	
+	int responseNumber = 0;
+
+
+	if (recvAndCheck(socketNum, buffer, 11, client, &clientAddrLen) < 0) {
+
+		return;
+	}	
+	
+
 	int flag = buffer[6];
-	int responseNumber;
+	
 	memcpy(&responseNumber, buffer + 7, 4);
 
 	if (flag == 5) {		// RR
 
-		setLower(responseNumber);
+		setLower(responseNumber + 1);
 	}
 	else if (flag == 6) {		// SREJ
 
@@ -331,10 +343,17 @@ int checkArgs(int argc, char *argv[])
 
 
 
+
+
+
+
 void windowTesting() {
 
 	setupWindow(5);
 
+
+
+	uint8_t packet0[7];
 	uint8_t packet1[7];
 	uint8_t packet2[7];
 	uint8_t packet3[7];
@@ -343,6 +362,8 @@ void windowTesting() {
 	uint8_t packet6[7];
 	uint8_t packet7[7];
 	uint8_t packet8[7];
+
+	createPDU(packet0, NULL, 0, 0);
 	createPDU(packet1, NULL, 0, 1);
 	createPDU(packet2, NULL, 0, 2);
 	createPDU(packet3, NULL, 0, 3);
@@ -352,9 +373,48 @@ void windowTesting() {
 	createPDU(packet7, NULL, 0, 7);
 	createPDU(packet8, NULL, 0, 8);
 
-	addToWindow((char *) packet, 7);
+	
+	addToWindow((char *) packet0, 7, seqNum++);
+	addToWindow((char *) packet1, 7, seqNum++);
+	addToWindow((char *) packet2, 7, seqNum++);
+	addToWindow((char *) packet3, 7, seqNum++);
+	addToWindow((char *) packet4, 7, seqNum++);
+
+	
+	
+	// client recieves first two packets and says its ready for next packet
+
+	// setCurrent(seqNum);
 
 
 
+	// send first 5 packets							(0, 5, 5)					
+	printAll();
+
+
+	// get RR for first 2 packets					(2, 5, 7)
+	setLower(2);
+
+	printAll();
+
+	// get RR for next 2 packets (RR 3)				(4, 5, 9)
+	setLower(4);
+
+	// send 3 more packets							(4, 9, 9)		
+	addToWindow((char *) packet5, 7, seqNum++);
+	addToWindow((char *) packet6, 7, seqNum++);
+	addToWindow((char *) packet8, 7, 8);
+
+	printAll();
+
+	setLower(7);
+
+	printAll();
+
+
+
+// lower is lowest value in window
+// current is next value to be sent
+// upper is value just out of the window
 
 }

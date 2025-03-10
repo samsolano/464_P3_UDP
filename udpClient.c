@@ -126,8 +126,7 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 
 			//add first data packet here and move to use portion now, also try opening to-file and give error if cant open like in server
 			setupWindow(windowLen);																								//when data is received setup window and store data packet
-			addToWindow((char *) recvPacket, bytes_received);																	//move now to use portion
-			seqNum++;
+			addToWindow((char *) recvPacket, bytes_received, seqNum++);																	//move now to use portion
 			clientUse(socketNum, server);
 			return;
 			
@@ -143,7 +142,7 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 
 void clientUse(int socketNum, struct sockaddr_in6 * server) {
 
-	printf("ready for data\n");
+	
 	return;
 }
 
