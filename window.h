@@ -16,6 +16,7 @@ void setUpper(uint32_t new);
 void setupWindow(int windowLen);
 void addToWindow(char *pdu, uint16_t pduLen, int seqNum);
 uint8_t *getWindowEntry(uint32_t seqNum);
+uint16_t getEntryLen(uint32_t seqNum);
 uint8_t windowOpen();
 void printAll();
 void printWindowValues();
@@ -24,6 +25,7 @@ typedef struct {
     uint8_t fullPdu[MAXBUF];
     uint8_t valid;
     uint32_t seq;
+    uint16_t len;
 } entry;
 
 entry *windowEntries;

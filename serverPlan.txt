@@ -56,6 +56,7 @@ window-> teardown
 
 Flags:
 
-33: rcopy ack of server acknowledge
-34: error flag
+33: rcopy ack of server fn acknowledge (rcopy -> server)
+34: error flag (server -> rcopy)
+35: ack of eof (rcopy -> server)
 

@@ -35,6 +35,7 @@ void setLower(uint32_t newLower) {
 
     lower = newLower;
     upper = lower + windowSize;
+    printf("Lower is now: %d, current: %d\n", lower, current);
 }
 
 void setCurrent(uint32_t new) { current = new; }
@@ -57,8 +58,9 @@ void addToWindow(char *pdu, uint16_t pduLen, int seqNum) {
 
     memset(windowEntries[index].fullPdu, 0, MAXBUF);
 	memcpy(windowEntries[index].fullPdu, pdu, pduLen);
-	windowEntries[seqNum - lower].seq = seqNum;
+	windowEntries[index].seq = seqNum;
     windowEntries[index].valid = 1;
+    windowEntries[index].len = pduLen;
     current++;
 }
 
@@ -70,6 +72,15 @@ uint8_t *getWindowEntry(uint32_t seqNum) {
     }
     uint32_t index = seqNum - lower;
     return windowEntries[index].fullPdu;
+}
+uint16_t getEntryLen(uint32_t seqNum) {
+
+    if(seqNum >= upper || seqNum < lower) {
+        perror("Number out of window bounds2");
+        return -1;
+    }
+    uint32_t index = seqNum - lower;
+    return windowEntries[index].len;
 }
 
 uint8_t windowOpen() {
@@ -89,7 +100,7 @@ void printAll() {
             printf("%02x ", getWindowEntry(i)[j]);
         }
 
-		printf("    valid: %d, seq: %d, address: %p\n", windowEntries[i - lower].valid, windowEntries[i - lower].seq, &windowEntries[i - lower]);
+		printf("    valid: %d, seq: %d, len: %d, address: %p\n", windowEntries[i - lower].valid, windowEntries[i - lower].seq, windowEntries[i - lower].len, &windowEntries[i - lower]);
 	}
 	printf("\n");
 }

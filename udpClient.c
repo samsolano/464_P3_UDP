@@ -34,11 +34,12 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server);
 int readFromStdin(char * buffer);
 int checkArgs(int argc, char * argv[]);
 void createPDUSERVERFIX(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t payloadLen, uint8_t flag);
-void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor);
+void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor, int packetZeroBytes);
 void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen);
 int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen);
 void sendRRorSREJ(int value, int flag, struct sockaddr *srcAddr, int addrLen, int socketNum);
 int checkFile();
+void teardown(int socketNum, struct sockaddr_in6 * server, int serverAddrLen);
 
 
 void talkToServer(int socketNum, struct sockaddr_in6 * server);
@@ -223,8 +224,8 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 
 	
 	if(sequenceNumberNetwork == expected) {
-		printf("writing %d\n", sequenceNumberHost);
-		write(toFileDescriptor, recvPacket0 + 7, packetZeroBytes);
+		printf("writing %d, bytes: %d\n", sequenceNumberHost, packetZeroBytes - 7);
+		write(toFileDescriptor, recvPacket0 + 7, packetZeroBytes - 7);
 		highest = expected;
 		expected++;
 		sendRRorSREJ(highest, RR, (struct sockaddr *) server, serverAddrLen, socketNum);
@@ -254,9 +255,28 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 				highest = expected;
 				expected++;
 				sendRRorSREJ(highest, RR, (struct sockaddr *) server, serverAddrLen, socketNum);
+
+				if(recvPacket[6] == 10) {
+					teardown(socketNum, server, serverAddrLen);
+					
+				}
+			}
+			else {
+				state = BUFFERING;
+				continue;
 			}
 		}
 	}
+}
+
+void teardown(int socketNum, struct sockaddr_in6 * server, int serverAddrLen) {
+
+	uint8_t dataPacket[7];
+
+	createPDUSERVERFIX(dataPacket, NULL, 0, 35);
+	safeSendto(socketNum, dataPacket, 7, 0, (struct sockaddr *) server, serverAddrLen);
+	printf("final ack sent\n");
+	exit(0);
 }
 
 
