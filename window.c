@@ -35,7 +35,6 @@ void setLower(uint32_t newLower) {
 
     lower = newLower;
     upper = lower + windowSize;
-    // printf("Lower is now: %d, current: %d\n", lower, current);
 }
 
 void setCurrent(uint32_t new) { current = new; }
