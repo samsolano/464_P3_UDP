@@ -23,18 +23,22 @@
 #include "pollLib.h"
 #include "window.h"
 
-#define 0 INORDER
-#define 1 BUFFERING
-#define 2 FLUSHING
+#define INORDER 0
+#define BUFFERING 1
+#define FLUSHING 2
+#define RR 5
+#define SREJ 6
 
 
 void establishConnection(int socketNum, struct sockaddr_in6 * server);
 int readFromStdin(char * buffer);
 int checkArgs(int argc, char * argv[]);
 void createPDUSERVERFIX(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t payloadLen, uint8_t flag);
-void clientUse(int socketNum, struct sockaddr_in6 * server);
+void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor);
 void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen);
 int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen);
+void sendRRorSREJ(int value, int flag, struct sockaddr *srcAddr, int addrLen, int socketNum);
+int checkFile();
 
 
 void talkToServer(int socketNum, struct sockaddr_in6 * server);
@@ -70,10 +74,12 @@ int main (int argc, char *argv[])
 
 void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 
+	int toFileDescriptor = checkFile();
+
 	setupPollSet();																			// create poll set and put main socket in
 	addToPollSet(socketNum);
 
-	uint8_t recvPacket[7];
+	uint8_t recvPacket[bufferSize + 7];
 	uint8_t payload[bufferSize];
 	memset(payload, 0, bufferSize);
 	
@@ -132,7 +138,8 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 			//add first data packet here and move to use portion now, also try opening to-file and give error if cant open like in server
 			setupWindow(windowLen);																								//when data is received setup window and store data packet
 			addToWindow((char *) recvPacket, bytes_received, seqNum++);																	//move now to use portion
-			clientUse(socketNum, (struct sockaddr *) server);
+			// write(toFileDescriptor, recvPacket + 7, bufferSize);
+			clientUse(socketNum, server, toFileDescriptor);
 			return;
 			
 		}
@@ -145,9 +152,9 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 
 }
 
-void clientUse(int socketNum, struct sockaddr * server) {
+void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor) {
 
-
+	// int serverAddrLen = sizeof(struct sockaddr_in6);
 	// uint8_t recvPacket0[bufferSize + 7];
 
 	// memcpy(recvPacket0, getWindowEntry(0), bufferSize + 7);
@@ -179,6 +186,7 @@ void clientUse(int socketNum, struct sockaddr * server) {
 
 
 
+	
 
 
 
@@ -196,48 +204,74 @@ void clientUse(int socketNum, struct sockaddr * server) {
 
 
 	int serverAddrLen = sizeof(struct sockaddr_in6);
-	uint8_t recvPacket0[bufferSize + 7];
+	uint8_t recvPacket[bufferSize + 7];
 	uint8_t state = INORDER;
-	int sequenceNumber =0;
+	int sequenceNumberNetwork = 0;
+	int sequenceNumberHost = 0;
 	int expected = 0;
 	int highest = 0;
 
-	while(1) {
 
 
-		
+	// this takes care of 0th data packet received
+	uint8_t recvPacket0[bufferSize + 7];
+	memcpy(recvPacket0, getWindowEntry(0), bufferSize + 7);
+	memcpy(&sequenceNumberNetwork, recvPacket0, 4);
+	printf("0th seqNum: %d\n", sequenceNumberNetwork);
 
+	
+	if(sequenceNumberNetwork == expected) {
+		printf("writing %d\n", sequenceNumberHost);
+		write(toFileDescriptor, recvPacket0 + 7, bufferSize);
+		highest = expected;
+		expected++;
+		sendRRorSREJ(highest, RR, (struct sockaddr *) server, serverAddrLen, socketNum);
+	}
+	else if (sequenceNumberNetwork > expected) {
+		// buffer state
+	}
+
+
+
+	while (1) {
+
+		pollCall(-1);
 		
 		if(state == INORDER) {
 
-			recvAndCheck(socketNum, recvPacket, bufferSize + 7, server, &serverAddrLen);
-			memcpy(&sequenceNumber, recvPacket, 4);
+			if (recvAndCheck(socketNum, recvPacket, bufferSize + 7, (struct sockaddr *) server, &serverAddrLen) < 0) {		// if bad checksum ignore packet
+				continue;
+			}
+			memcpy(&sequenceNumberNetwork, recvPacket, 4);
+			sequenceNumberHost = ntohl(sequenceNumberNetwork);
+			printf("seqNum: %d, expected: %d\n", sequenceNumberHost, expected);
 
-			if(sequenceNumber == expected) {
-				
-				write(toFile, recvPacket + 7, bufferSize);
+			if(sequenceNumberHost == expected) {
+				printf("writing %d\n", sequenceNumberHost);
+				write(toFileDescriptor, recvPacket + 7, bufferSize);
 				highest = expected;
 				expected++;
-				// RR highest
+				sendRRorSREJ(highest, RR, (struct sockaddr *) server, serverAddrLen, socketNum);
 			}
 		}
-
 	}
-	
-
-
-
-
-
-
 }
 
 
-void writeToDisk() {
+void sendRRorSREJ(int value, int flag, struct sockaddr *srcAddr, int addrLen, int socketNum) {
 
-	
+	uint8_t dataPacket[11];
+	uint8_t payload[4];
+	int valHost = value;
+	int valNetwork = htonl(valHost);
+
+	memcpy(payload, &valNetwork, 4);
+	createPDUSERVERFIX(dataPacket, payload, 4, flag);
+	safeSendto(socketNum, dataPacket, 11, 0, srcAddr, addrLen);
+	if(flag == 5) {
+		setLower(valHost);
+	}
 }
-
 
 
 
@@ -251,7 +285,6 @@ void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAdd
 
 		safeSendto(socketNum, buf, (size_t) len, 0, srcAddr, addrLen);
 		numOfTries++;
-		// printf("%d: Packet Sent\n", numOfTries);
 		if (pollCall(1000) > 0) {																		// if socket is ready to receive then set variable to exit while 
 			numOfTries = 69;
 		}
@@ -268,6 +301,7 @@ void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAdd
 
 int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen) {
 
+	// printf("3\n");
 	int returnValue = safeRecvfrom(socketNum, buf, len, 0, srcAddr, addrLen);
 	
 	//check the checksum
@@ -348,7 +382,12 @@ int checkArgs(int argc, char * argv[])
 
 
 
+int checkFile() {
 
+	int toFileDescriptor = open((const char *) toFile, O_WRONLY | O_CREAT | O_TRUNC, 00777);
+	if(toFileDescriptor < 0) { perror("cannot open to-File"); exit(-1);}
+	return toFileDescriptor;
+}
 
 
 

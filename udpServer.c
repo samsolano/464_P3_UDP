@@ -154,7 +154,7 @@ void childProcess(int socketNum, struct sockaddr * client, int file, int windowS
 	// setupPollSet();
 	// addToPollSet(socketNumber);
 
-	printf("in child\n");
+	// printf("in child\n");
 
 	setupWindow(windowSize);
 	uint8_t packet[bufferSize + 7];
@@ -235,7 +235,6 @@ void processPacket(int socketNum, struct sockaddr *client, int bufferSize) {
 		printf("received bad packet\n");
 		return;
 	}	
-	printf("processing ");
 
 	int flag = buffer[6];
 	
@@ -243,7 +242,7 @@ void processPacket(int socketNum, struct sockaddr *client, int bufferSize) {
 	responseNumberHost = ntohl(responseNumberNetwork);
 
 	if (flag == 5) {		// RR
-		printf("\tRR packet\n");
+		printf("\tRR packet for %d\n", responseNumberHost);
 		setLower(responseNumberHost + 1);
 	}
 	else if (flag == 6) {		// SREJ
@@ -305,7 +304,6 @@ void createPDU(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t payloadLen,
 	memset(dataPacket, 0, payloadLen + 7);
 	int networkSequence = htonl(seqNum);
 	uint8_t flagInput = flag;
-	printf("seqNum: %d, network seqNum: %d\n", seqNum, networkSequence);
 
 	memcpy(dataPacket, &networkSequence, 4);
 	dataPacket[4] = 0;
