@@ -73,6 +73,7 @@ uint8_t *getWindowEntry(uint32_t seqNum) {
     uint32_t index = seqNum - lower;
     return windowEntries[index].fullPdu;
 }
+
 uint16_t getEntryLen(uint32_t seqNum) {
 
     if(seqNum >= upper || seqNum < lower) {
@@ -81,6 +82,16 @@ uint16_t getEntryLen(uint32_t seqNum) {
     }
     uint32_t index = seqNum - lower;
     return windowEntries[index].len;
+}
+
+uint8_t getEntryValid(uint32_t seqNum) {
+
+    if(seqNum >= upper || seqNum < lower) {
+        perror("Number out of window bounds2");
+        return -1;
+    }
+    uint32_t index = seqNum - lower;
+    return windowEntries[index].valid;
 }
 
 uint8_t windowOpen() {

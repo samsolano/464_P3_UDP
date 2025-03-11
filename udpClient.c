@@ -211,7 +211,6 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 	int sequenceNumberHost = 0;
 	int expected = 0;
 	int highest = 0;
-
 	int bytes_received = 0;
 
 
@@ -239,15 +238,17 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 	while (1) {
 
 		pollCall(-1);
-		
-		if(state == INORDER) {
 
-			if ((bytes_received = recvAndCheck(socketNum, recvPacket, bufferSize + 7, (struct sockaddr *) server, &serverAddrLen)) < 0) {		// if bad checksum ignore packet
-				continue;
-			}
-			memcpy(&sequenceNumberNetwork, recvPacket, 4);
-			sequenceNumberHost = ntohl(sequenceNumberNetwork);
-			printf("seqNum: %d, expected: %d\n", sequenceNumberHost, expected);
+		if ((bytes_received = recvAndCheck(socketNum, recvPacket, bufferSize + 7, (struct sockaddr *) server, &serverAddrLen)) < 0) {		// if bad checksum ignore packet
+			continue;
+		}
+
+		memcpy(&sequenceNumberNetwork, recvPacket, 4);
+		sequenceNumberHost = ntohl(sequenceNumberNetwork);
+		printf("seqNum: %d, expected: %d\n", sequenceNumberHost, expected);
+		
+
+		if (state == INORDER) {
 
 			if(sequenceNumberHost == expected) {
 				printf("writing %d\n", sequenceNumberHost);
@@ -261,13 +262,83 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 					
 				}
 			}
-			else {
+			else if (sequenceNumberHost > expected){
+
 				state = BUFFERING;
-				continue;
+
+				sendRRorSREJ(expected, SREJ, (struct sockaddr *) server, serverAddrLen, socketNum);
+				addToWindow((char *) recvPacket, bytes_received, sequenceNumberHost);
+				highest = sequenceNumberHost;
+
+
+				// srej expected #
+				// buffer recvPacket
+				// highest = sequenceNumberHost;
 			}
+		}
+		else if (state == BUFFERING) {
+
+			if (sequenceNumberHost > expected) {
+
+				addToWindow((char *) recvPacket, bytes_received, sequenceNumberHost);
+				highest = sequenceNumberHost;
+
+				// buffer received packet
+				// highest = sequenceNumberHost
+			}
+			else if (sequenceNumberHost == expected) {
+
+				printf("writing buffered packet %d\n", sequenceNumberHost);
+				write(toFileDescriptor, recvPacket + 7, bytes_received - 7);
+				expected++;
+				sendRRorSREJ(expected, RR, (struct sockaddr *) server, serverAddrLen, socketNum);
+
+				state = FLUSHING;
+				
+				//write packet
+				//RR packet
+				//expected++
+				
+			}
+
+		}
+		else if (state == FLUSHING) {
+
+			int needToBuffer = 0;
+
+			while (expected <= highest) {
+
+				if(getEntryValid(expected)) {
+
+					write(toFileDescriptor, getWindowEntry(expected) + 7, getEntryLen(expected) - 7);
+					expected++;
+					sendRRorSREJ(expected, RR, (struct sockaddr *) server, serverAddrLen, socketNum);
+				}
+				else {
+
+					sendRRorSREJ(expected, SREJ, (struct sockaddr *) server, serverAddrLen, socketNum);
+					state = BUFFERING;
+					needToBuffer = 1;
+					break;
+				}
+				
+			}
+			
+			if(needToBuffer == 0) {
+				state = INORDER;
+			}
+
+			// while expected <= highest
+			// if expected is valid - write, rr, expected++
+			// else if expected is not valid, srej expected, state = buffering
+			// if expected
+
+			// state = inorder
+
 		}
 	}
 }
+
 
 void teardown(int socketNum, struct sockaddr_in6 * server, int serverAddrLen) {
 
@@ -299,9 +370,7 @@ void sendRRorSREJ(int value, int flag, struct sockaddr *srcAddr, int addrLen, in
 
 
 void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen) {
-	int returnValue = 0;
 	int numOfTries = 0;
-	int pollResult = 0;
 
 	while (numOfTries < 10) {																			// try max of 10 times
 
@@ -333,12 +402,12 @@ int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, i
 	// if wrong return -1
 
 
-	// printf("\n");
-	// for(int i = 0; i < len; i++) {
+	printf("\n");
+	for(int i = 0; i < len; i++) {
 
-	// 	printf("%x ", ((uint8_t *)buf)[i] );
-	// }
-	// printf("\n");
+		printf("%x ", ((uint8_t *)buf)[i] );
+	}
+	printf("\n");
 	
 
 	return returnValue;
