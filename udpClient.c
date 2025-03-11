@@ -62,7 +62,7 @@ int main (int argc, char *argv[])
 	
 	socketNum = setupUdpClientToServer(&server, argv[6], portNumber);
 
-	sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_OFF);
+	sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_ON);
 	
 	establishConnection(socketNum, &server);
 
