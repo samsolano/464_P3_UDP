@@ -93,3 +93,7 @@ void printAll() {
 	}
 	printf("\n");
 }
+
+void printWindowValues() {
+    printf("\nLower: %d, current: %d, upper: %d\n", lower, current, upper);
+}

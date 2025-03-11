@@ -23,6 +23,10 @@
 #include "pollLib.h"
 #include "window.h"
 
+#define 0 INORDER
+#define 1 BUFFERING
+#define 2 FLUSHING
+
 
 void establishConnection(int socketNum, struct sockaddr_in6 * server);
 int readFromStdin(char * buffer);
@@ -105,7 +109,7 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 		}
 		flagReceived = recvPacket[6];
 
-		printf("fn ack received, flag received should be 9: %d\n", flagReceived);
+		// printf("fn ack received, flag received should be 9: %d\n", flagReceived);
 
 		if (flagReceived == 9)	{																								// successful
 			
@@ -113,9 +117,8 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 				
 			while (flagReceived != 16) {																						// check that flag now is a normal data packet
 
-				printf("1\n");
 				sendWithRetries(socketNum, sendPacket, 7, (struct sockaddr *) server, serverAddrLen);		// send final ack to server
-				printf("2\n");
+
 				while ((bytes_received = recvAndCheck(socketNum, recvPacket, bufferSize + 7, (struct sockaddr *) server, &serverAddrLen)) < 0) {						
 				
 					sendWithRetries(socketNum, sendPacket, 7, (struct sockaddr *) server, sizeof(struct sockaddr_in6));
@@ -124,10 +127,12 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 				flagReceived = recvPacket[6];
 			}
 
+			// printf("first data packet received\n");
+
 			//add first data packet here and move to use portion now, also try opening to-file and give error if cant open like in server
 			setupWindow(windowLen);																								//when data is received setup window and store data packet
 			addToWindow((char *) recvPacket, bytes_received, seqNum++);																	//move now to use portion
-			clientUse(socketNum, server);
+			clientUse(socketNum, (struct sockaddr *) server);
 			return;
 			
 		}
@@ -140,10 +145,97 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 
 }
 
-void clientUse(int socketNum, struct sockaddr_in6 * server) {
+void clientUse(int socketNum, struct sockaddr * server) {
+
+
+	// uint8_t recvPacket0[bufferSize + 7];
+
+	// memcpy(recvPacket0, getWindowEntry(0), bufferSize + 7);
+
+	// printf("\n");
+	// 	for(int i = 0; i < bufferSize + 7; i++) {
+
+	// 		printf("%02x ", recvPacket0[i]);
+	// 	}
+	// 	printf("\n");
+
+
+	// while(1) {
+
+	// 	uint8_t recvPacket[bufferSize + 7];
+
+	// 	pollCall(-1);
+	// 	recvAndCheck(socketNum, recvPacket, bufferSize + 7, (struct sockaddr *) server, &serverAddrLen);
+
+	// 	printf("\n");
+	// 	for(int i = 0; i < bufferSize + 7; i++) {
+
+	// 		printf("%02x ", recvPacket[i]);
+	// 	}
+	// 	printf("\n");
+
+	// }
+	// return;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	int serverAddrLen = sizeof(struct sockaddr_in6);
+	uint8_t recvPacket0[bufferSize + 7];
+	uint8_t state = INORDER;
+	int sequenceNumber =0;
+	int expected = 0;
+	int highest = 0;
+
+	while(1) {
+
+
+		
+
+		
+		if(state == INORDER) {
+
+			recvAndCheck(socketNum, recvPacket, bufferSize + 7, server, &serverAddrLen);
+			memcpy(&sequenceNumber, recvPacket, 4);
+
+			if(sequenceNumber == expected) {
+				
+				write(toFile, recvPacket + 7, bufferSize);
+				highest = expected;
+				expected++;
+				// RR highest
+			}
+		}
+
+	}
+	
+
+
+
+
+
+
+}
+
+
+void writeToDisk() {
 
 	
-	return;
 }
 
 
@@ -159,7 +251,7 @@ void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAdd
 
 		safeSendto(socketNum, buf, (size_t) len, 0, srcAddr, addrLen);
 		numOfTries++;
-		printf("%d: Packet Sent\n", numOfTries);
+		// printf("%d: Packet Sent\n", numOfTries);
 		if (pollCall(1000) > 0) {																		// if socket is ready to receive then set variable to exit while 
 			numOfTries = 69;
 		}

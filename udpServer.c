@@ -28,9 +28,9 @@ int checkArgs(int argc, char *argv[]);
 void createPDU(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t payloadLen, uint8_t flag);
 void childProcess(int socketNum, struct sockaddr * client, int file, int windowSize, int bufferSize);
 void createChild(int socketNum, struct sockaddr *client, int file, int windowSize, int bufferSize);
-void resendPacket(int responseNumber, int socketNum, struct sockaddr *client, int file);
+void resendPacket(int sequenceNumber, int socketNum, struct sockaddr *client, int bufferSize);
 void sendDataPacket(int socketNum, struct sockaddr *client, int file, int bufferSize);
-void processPacket(int socketNum, struct sockaddr *client, int file);
+void processPacket(int socketNum, struct sockaddr *client, int bufferSize);
 void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen);
 int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen);
 
@@ -154,45 +154,46 @@ void childProcess(int socketNum, struct sockaddr * client, int file, int windowS
 	// setupPollSet();
 	// addToPollSet(socketNumber);
 
-	
-	uint8_t packet[bufferSize + 7];
+	printf("in child\n");
 
-	uint8_t state = USE;
+	setupWindow(windowSize);
+	uint8_t packet[bufferSize + 7];
 	
 
 	while (1) {
-
-		pollCall(-1);
-
-		uint8_t packetPayload[bufferSize];
-		uint8_t dataPacket[bufferSize + 7];
-		uint8_t failNumber = 0;
-
+		
+		
 		while(windowOpen()) {
+			// printf("in window open\n");
+			uint8_t packetPayload[bufferSize];
+			uint8_t dataPacket[bufferSize + 7];
 
-			sendDataPacket(socketNum, client, file, bufferSize);
+			sendDataPacket(socketNum, client, file, bufferSize);									// send data packet
 
-			//check for RR 
-			
+			if (pollCall(0) > 0) {																	// if there is a packet received process it
+				printf("received in open\n");
+				processPacket(socketNum, client, bufferSize);
+
+			}	
 		}
+
+		uint8_t failNumber = 0;																		// to keep track of number of times nothing received
+
 		while(!windowOpen()) {
-			// poll and wait for one second if successful process rr
-			// if timeout then send lowest packet in window
 
-			
+			printf("in window closed\n");
+			int polledSocket = pollCall(1000);														// poll for a second
 
-			int polledSocket = pollCall(1000);
-
-			if (polledSocket > 0) {
-				processPacket(socketNum, client, file);
+			if (polledSocket > 0) {																	// if receive something process the packet
+				processPacket(socketNum, client, bufferSize);
 				failNumber = 0;
 			}
-			else if (failNumber == 10) {
+			else if (failNumber == 10) {															// if fail 10 times exit program
 				perror("connection failed");
 				exit(-1);
 			}
-			else {
-				//send lowest packet in window
+			else {																					// if nothing received and not at 10 fails, send lowest packet in window
+				resendPacket(getLower(), socketNum, client, bufferSize);
 				failNumber++;
 			}
 		}
@@ -206,66 +207,60 @@ void sendDataPacket(int socketNum, struct sockaddr * client, int file, int buffe
 
 	int bytes = read(file, packetPayload, bufferSize);												// fill payload with bytes from file
 
-	if (bytes == 0) { printf("no more bytes\n"); return; }
-	else if(bytes == -1) { perror("Error reading file"); }
-	if (bytes < bufferSize) {
+	if (bytes == 0) { printf("no more bytes\n"); exit(0); }
+	else if(bytes == -1) { perror("Error reading file"); exit(-1); }
+	else if (bytes < bufferSize) {
 		//handle last packet
 	}
 	
-	memset(dataPacket, 0, sizeof(dataPacket));														// clear data packet
 	createPDU(dataPacket, packetPayload, bytes, 16);												// fill packet with header and payload
-	addToWindow((char *) dataPacket, bufferSize + 7, seqNum++);										// add packet to payload
+	addToWindow((char *) dataPacket, bufferSize + 7, seqNum);										// add packet to payload
 	
-	safeSendto(socketNum, dataPacket, bytes + 7, 0, client, sizeof(client)); 
 
-	// poll to see if there is a response with 0 wait time, and process rr if there is one
-
-	if (pollCall(0) > 0) {
-
-		processPacket(socketNum, client, file);
-
-	}
+	safeSendto(socketNum, dataPacket, bytes + 7, 0, client, sizeof(struct sockaddr_in6)); 
+	printf("%d: packet sent\n", seqNum);
+	seqNum++;
 }
 
-void processPacket(int socketNum, struct sockaddr *client, int file) {
+void processPacket(int socketNum, struct sockaddr *client, int bufferSize) {
 
 	uint8_t buffer[11];
 	int clientAddrLen = sizeof(client);	
-	int responseNumber = 0;
+	int responseNumberNetwork = 0;
+	int responseNumberHost = 0;
 
 
 	if (recvAndCheck(socketNum, buffer, 11, client, &clientAddrLen) < 0) {
 
+		printf("received bad packet\n");
 		return;
 	}	
-	
+	printf("processing ");
 
 	int flag = buffer[6];
 	
-	memcpy(&responseNumber, buffer + 7, 4);
+	memcpy(&responseNumberNetwork, buffer + 7, 4);
+	responseNumberHost = ntohl(responseNumberNetwork);
 
 	if (flag == 5) {		// RR
-
-		setLower(responseNumber + 1);
+		printf("\tRR packet\n");
+		setLower(responseNumberHost + 1);
 	}
 	else if (flag == 6) {		// SREJ
-
-		resendPacket(responseNumber, socketNum, client, file);
+		printf("\tSREJ packet\n");
+		resendPacket(responseNumberHost, socketNum, client, bufferSize);
 	}
 }
 
 
-void resendPacket(int responseNumber, int socketNum, struct sockaddr *client, int file) {
+void resendPacket(int sequenceNumber, int socketNum, struct sockaddr *client, int bufferSize) {
 
-	return;
-
+	printf("Resending Packet %d\n", sequenceNumber);
+	uint8_t dataPacket[bufferSize + 7];
+	memcpy(dataPacket, getWindowEntry(sequenceNumber), bufferSize + 7);
+	safeSendto(socketNum, dataPacket, bufferSize + 7, 0, client, sizeof(struct sockaddr_in6));
 }
 
-
-
-void setup(int socketNum) {
-
-}
 
 void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen) {
 	int returnValue = 0;
@@ -310,6 +305,7 @@ void createPDU(uint8_t *dataPacket, uint8_t *packetPayload, uint16_t payloadLen,
 	memset(dataPacket, 0, payloadLen + 7);
 	int networkSequence = htonl(seqNum);
 	uint8_t flagInput = flag;
+	printf("seqNum: %d, network seqNum: %d\n", seqNum, networkSequence);
 
 	memcpy(dataPacket, &networkSequence, 4);
 	dataPacket[4] = 0;
@@ -390,26 +386,37 @@ void windowTesting() {
 
 	// send first 5 packets							(0, 5, 5)					
 	printAll();
+	printWindowValues();
 
 
 	// get RR for first 2 packets					(2, 5, 7)
 	setLower(2);
+	printWindowValues();
 
 	printAll();
+	printWindowValues();
 
 	// get RR for next 2 packets (RR 3)				(4, 5, 9)
 	setLower(4);
+	printWindowValues();
 
 	// send 3 more packets							(4, 9, 9)		
 	addToWindow((char *) packet5, 7, seqNum++);
 	addToWindow((char *) packet6, 7, seqNum++);
-	addToWindow((char *) packet8, 7, 8);
+	addToWindow((char *) packet7, 7, seqNum++);
+	printf("window is %d\n", windowOpen());
+	addToWindow((char *) packet8, 7, seqNum++);
+
+	printf("window is %d\n", windowOpen());
 
 	printAll();
+	printWindowValues();
 
 	setLower(7);
+	printWindowValues();
 
 	printAll();
+	printWindowValues();
 
 
 
