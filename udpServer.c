@@ -18,6 +18,7 @@
 #include "libcpe464/checksum.h"
 #include "pollLib.h"
 #include "window.h"
+#include "cpe464.h"
 
 #define SETUP 0
 #define USE 1
@@ -40,6 +41,7 @@ void windowTesting();
 
 
 int seqNum = 0;
+float error = 0.0;
 
 int main( int argc, char *argv[]  )
 { 
@@ -47,6 +49,8 @@ int main( int argc, char *argv[]  )
 	int portNumber = 0;
 
 	portNumber = checkArgs(argc, argv);
+
+	sendtoErr_init(error, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_OFF);
 		
 	socketNum = udpServerSetup(portNumber);
 
@@ -158,7 +162,7 @@ void childProcess(int socketNum, struct sockaddr * client, int file, int windowS
 	// printf("in child\n");
 
 	setupWindow(windowSize);
-	uint8_t packet[bufferSize + 7];
+	// uint8_t packet[bufferSize + 7];
 	
 
 	while (1) {
@@ -166,8 +170,8 @@ void childProcess(int socketNum, struct sockaddr * client, int file, int windowS
 		
 		while(windowOpen()) {
 			// printf("in window open\n");
-			uint8_t packetPayload[bufferSize];
-			uint8_t dataPacket[bufferSize + 7];
+			// uint8_t packetPayload[bufferSize];
+			// uint8_t dataPacket[bufferSize + 7];
 
 			sendDataPacket(socketNum, client, file, bufferSize);									// send data packet
 
@@ -235,9 +239,9 @@ void teardown(int socketNum, struct sockaddr * client, int bufferSize) {
 	printAll();
 	printWindowValues();
 	
-	uint8_t sendPacket[bufferSize + 7];
-	uint8_t recvPacket[bufferSize + 7];
-	int addrLen = sizeof(client);
+	// uint8_t sendPacket[bufferSize + 7];
+	// uint8_t recvPacket[bufferSize + 7];
+	// int addrLen = sizeof(client);
 	int socketReturned = 0;
 	int fails = 0;
 
@@ -308,9 +312,9 @@ void resendPacket(int sequenceNumber, int socketNum, struct sockaddr *client, in
 
 
 void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int addrLen) {
-	int returnValue = 0;
+	// int returnValue = 0;
 	int numOfTries = 0;
-	int pollResult = 0;
+	// int pollResult = 0;
 
 	while (numOfTries < 10) {																			// try max of 10 times
 
@@ -333,13 +337,12 @@ void sendWithRetries(int socketNum, void * buf, int len, struct sockaddr *srcAdd
 int recvAndCheck(int socketNum, void * buf, int len, struct sockaddr *srcAddr, int * addrLen) {
 
 	int returnValue = safeRecvfrom(socketNum, buf, len, 0, srcAddr, addrLen);
-	
-	//check the checksum
-	// unsigned short checksumValue = 0;
-	// memcpy(&checksumValue, buf + 4, 2);
+	unsigned short checksum = in_cksum(buf, returnValue);
 
-	// if wrong return -1
-
+	if (checksum != 0) {
+		
+		return -1;
+	}
 	return returnValue;
 }
 
@@ -367,16 +370,20 @@ int checkArgs(int argc, char *argv[])
 	// Checks args and returns port number
 	int portNumber = 0;
 
-	if (argc > 2)
+	error = atof(argv[1]);
+
+	if (argc > 3 | error < 0.0 | error > 1.0)
 	{
-		fprintf(stderr, "Usage %s [optional port number]\n", argv[0]);
+		fprintf(stderr, "Usage %s error-rate (0.0 - 1.0) [optional port number]\n", argv[0]);
 		exit(-1);
 	}
 	
-	if (argc == 2)
+	if (argc == 3)
 	{
-		portNumber = atoi(argv[1]);
+		portNumber = atoi(argv[2]);
 	}
+
+	
 	
 	return portNumber;
 }

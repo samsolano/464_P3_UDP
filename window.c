@@ -35,7 +35,7 @@ void setLower(uint32_t newLower) {
 
     lower = newLower;
     upper = lower + windowSize;
-    printf("Lower is now: %d, current: %d\n", lower, current);
+    // printf("Lower is now: %d, current: %d\n", lower, current);
 }
 
 void setCurrent(uint32_t new) { current = new; }
@@ -53,6 +53,10 @@ void addToWindow(char *pdu, uint16_t pduLen, int seqNum) {
     if (windowEntries == NULL) {
         perror("Window needs to be setup");
         return;
+    }
+    if(seqNum >= upper | seqNum < lower) {
+        perror("adding out of window");
+        exit(-1);
     }
     uint32_t index = seqNum - lower;
 
