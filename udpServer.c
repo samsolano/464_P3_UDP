@@ -39,6 +39,7 @@ void windowTesting();
 
 
 int seqNum = 0;
+int teardown = 0;
 
 int main( int argc, char *argv[]  )
 { 
@@ -171,7 +172,7 @@ void childProcess(int socketNum, struct sockaddr * client, int file, int windowS
 			sendDataPacket(socketNum, client, file, bufferSize);									// send data packet
 
 			if (pollCall(0) > 0) {																	// if there is a packet received process it
-				printf("received in open\n");
+				// printf("received in open\n");
 				processPacket(socketNum, client, bufferSize);
 
 			}	
@@ -211,6 +212,7 @@ void sendDataPacket(int socketNum, struct sockaddr * client, int file, int buffe
 	else if(bytes == -1) { perror("Error reading file"); exit(-1); }
 	else if (bytes < bufferSize) {
 		//handle last packet
+		printf("bytes < buffer, %d < %d\n", bytes, bufferSize);
 	}
 	
 	createPDU(dataPacket, packetPayload, bytes, 16);												// fill packet with header and payload

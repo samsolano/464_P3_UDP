@@ -139,7 +139,7 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 			setupWindow(windowLen);																								//when data is received setup window and store data packet
 			addToWindow((char *) recvPacket, bytes_received, seqNum++);																	//move now to use portion
 			// write(toFileDescriptor, recvPacket + 7, bufferSize);
-			clientUse(socketNum, server, toFileDescriptor);
+			clientUse(socketNum, server, toFileDescriptor, bytes_received); 
 			return;
 			
 		}
@@ -152,7 +152,7 @@ void establishConnection(int socketNum, struct sockaddr_in6 * server) {
 
 }
 
-void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor) {
+void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor, int packetZeroBytes) {
 
 	// int serverAddrLen = sizeof(struct sockaddr_in6);
 	// uint8_t recvPacket0[bufferSize + 7];
@@ -211,9 +211,11 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 	int expected = 0;
 	int highest = 0;
 
+	int bytes_received = 0;
 
 
-	// this takes care of 0th data packet received
+
+	// ----------------------------------this takes care of 0th data packet received--------------------------------------------------------------------
 	uint8_t recvPacket0[bufferSize + 7];
 	memcpy(recvPacket0, getWindowEntry(0), bufferSize + 7);
 	memcpy(&sequenceNumberNetwork, recvPacket0, 4);
@@ -222,7 +224,7 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 	
 	if(sequenceNumberNetwork == expected) {
 		printf("writing %d\n", sequenceNumberHost);
-		write(toFileDescriptor, recvPacket0 + 7, bufferSize);
+		write(toFileDescriptor, recvPacket0 + 7, packetZeroBytes);
 		highest = expected;
 		expected++;
 		sendRRorSREJ(highest, RR, (struct sockaddr *) server, serverAddrLen, socketNum);
@@ -230,7 +232,7 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 	else if (sequenceNumberNetwork > expected) {
 		// buffer state
 	}
-
+	// -------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 	while (1) {
@@ -239,7 +241,7 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 		
 		if(state == INORDER) {
 
-			if (recvAndCheck(socketNum, recvPacket, bufferSize + 7, (struct sockaddr *) server, &serverAddrLen) < 0) {		// if bad checksum ignore packet
+			if ((bytes_received = recvAndCheck(socketNum, recvPacket, bufferSize + 7, (struct sockaddr *) server, &serverAddrLen)) < 0) {		// if bad checksum ignore packet
 				continue;
 			}
 			memcpy(&sequenceNumberNetwork, recvPacket, 4);
@@ -248,7 +250,7 @@ void clientUse(int socketNum, struct sockaddr_in6 * server, int toFileDescriptor
 
 			if(sequenceNumberHost == expected) {
 				printf("writing %d\n", sequenceNumberHost);
-				write(toFileDescriptor, recvPacket + 7, bufferSize);
+				write(toFileDescriptor, recvPacket + 7, bytes_received - 7);
 				highest = expected;
 				expected++;
 				sendRRorSREJ(highest, RR, (struct sockaddr *) server, serverAddrLen, socketNum);
