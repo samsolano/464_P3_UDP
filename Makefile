@@ -18,14 +18,14 @@ CFLAGS += -D__LIBCPE464_
 
 all: udpAll
 
-udpAll: udpClient udpServer
+udpAll: rcopy server
 tcpAll: myClient myServer
 
-udpClient: udpClient.c $(OBJS) 
-	$(CC) $(CFLAGS) -o udpClient udpClient.c $(OBJS) $(LIBS)
+rcopy: rcopy.c $(OBJS) 
+	$(CC) $(CFLAGS) -o rcopy rcopy.c $(OBJS) $(LIBS)
 
-udpServer: udpServer.c $(OBJS) 
-	$(CC) $(CFLAGS) -o udpServer udpServer.c  $(OBJS) $(LIBS)
+server: server.c $(OBJS) 
+	$(CC) $(CFLAGS) -o server server.c  $(OBJS) $(LIBS)
 
 myClient: myClient.c $(OBJS)
 	$(CC) $(CFLAGS) -o myClient myClient.c  $(OBJS) $(LIBS)
@@ -40,7 +40,7 @@ cleano:
 	rm -f *.o
 
 clean:
-	rm -f myServer myClient udpClient udpServer *.o
+	rm -f myServer myClient rcopy server *.o
 
 
 

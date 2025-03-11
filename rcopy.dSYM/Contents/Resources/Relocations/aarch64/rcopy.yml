@@ -1,0 +1,81 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     rcopy
+relocations:
+  - { offset: 0x26, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100002F2C, symSize: 0x98 }
+  - { offset: 0x3F, size: 0x8, addend: 0x0, symName: _windowLen, symObjAddr: 0x3610, symBinAddr: 0x1000180C8, symSize: 0x0 }
+  - { offset: 0x5B, size: 0x8, addend: 0x0, symName: _bufferSize, symObjAddr: 0x3614, symBinAddr: 0x1000180CC, symSize: 0x0 }
+  - { offset: 0x70, size: 0x8, addend: 0x0, symName: _errorRate, symObjAddr: 0x3618, symBinAddr: 0x1000180D0, symSize: 0x0 }
+  - { offset: 0x8C, size: 0x8, addend: 0x0, symName: _seqNum, symObjAddr: 0x361C, symBinAddr: 0x1000180D4, symSize: 0x0 }
+  - { offset: 0xAF, size: 0x8, addend: 0x0, symName: _windowEntries, symBinAddr: 0x1000181A8, symSize: 0x0 }
+  - { offset: 0x150, size: 0x8, addend: 0x0, symName: _requestedFile, symBinAddr: 0x1000180D8, symSize: 0x0 }
+  - { offset: 0x171, size: 0x8, addend: 0x0, symName: _toFile, symBinAddr: 0x10001813D, symSize: 0x0 }
+  - { offset: 0x1E9, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100002F2C, symSize: 0x98 }
+  - { offset: 0x249, size: 0x8, addend: 0x0, symName: _checkArgs, symObjAddr: 0x98, symBinAddr: 0x100002FC4, symSize: 0x170 }
+  - { offset: 0x291, size: 0x8, addend: 0x0, symName: _establishConnection, symObjAddr: 0x208, symBinAddr: 0x100003134, symSize: 0x45C }
+  - { offset: 0x35E, size: 0x8, addend: 0x0, symName: _createPDUSERVERFIX, symObjAddr: 0x664, symBinAddr: 0x100003590, symSize: 0x118 }
+  - { offset: 0x3DE, size: 0x8, addend: 0x0, symName: _sendWithRetries, symObjAddr: 0x77C, symBinAddr: 0x1000036A8, symSize: 0xC4 }
+  - { offset: 0x44F, size: 0x8, addend: 0x0, symName: _recvAndCheck, symObjAddr: 0x840, symBinAddr: 0x10000376C, symSize: 0x8C }
+  - { offset: 0x4D3, size: 0x8, addend: 0x0, symName: _clientUse, symObjAddr: 0x8CC, symBinAddr: 0x1000037F8, symSize: 0x6CC }
+  - { offset: 0x60C, size: 0x8, addend: 0x0, symName: _sendRRorSREJ, symObjAddr: 0xF98, symBinAddr: 0x100003EC4, symSize: 0xE8 }
+  - { offset: 0x6AA, size: 0x8, addend: 0x0, symName: _teardown, symObjAddr: 0x1080, symBinAddr: 0x100003FAC, symSize: 0x58 }
+  - { offset: 0x6FD, size: 0x8, addend: 0x0, symName: __OSSwapInt32, symObjAddr: 0x10D8, symBinAddr: 0x100004004, symSize: 0x20 }
+  - { offset: 0x725, size: 0x8, addend: 0x0, symName: _checkFile, symObjAddr: 0x10F8, symBinAddr: 0x100004024, symSize: 0x64 }
+  - { offset: 0x8D1, size: 0x8, addend: 0x0, symName: _tcpServerSetup, symObjAddr: 0x0, symBinAddr: 0x100004088, symSize: 0x188 }
+  - { offset: 0x943, size: 0x8, addend: 0x0, symName: _tcpServerSetup, symObjAddr: 0x0, symBinAddr: 0x100004088, symSize: 0x188 }
+  - { offset: 0x995, size: 0x8, addend: 0x0, symName: __OSSwapInt16, symObjAddr: 0x188, symBinAddr: 0x100004210, symSize: 0x24 }
+  - { offset: 0x9BD, size: 0x8, addend: 0x0, symName: _tcpAccept, symObjAddr: 0x1AC, symBinAddr: 0x100004234, symSize: 0xD0 }
+  - { offset: 0xA1D, size: 0x8, addend: 0x0, symName: _tcpClientSetup, symObjAddr: 0x27C, symBinAddr: 0x100004304, symSize: 0x158 }
+  - { offset: 0xA8B, size: 0x8, addend: 0x0, symName: _udpServerSetup, symObjAddr: 0x3D4, symBinAddr: 0x10000445C, symSize: 0x134 }
+  - { offset: 0xADD, size: 0x8, addend: 0x0, symName: _setupUdpClientToServer, symObjAddr: 0x508, symBinAddr: 0x100004590, symSize: 0x154 }
+  - { offset: 0xC5D, size: 0x8, addend: 0x0, symName: _printIPInfo, symObjAddr: 0x0, symBinAddr: 0x1000046E4, symSize: 0x74 }
+  - { offset: 0xC78, size: 0x8, addend: 0x0, symName: _ipAddressToString, symObjAddr: 0x74, symBinAddr: 0x100004758, symSize: 0x40 }
+  - { offset: 0xC9D, size: 0x8, addend: 0x0, symName: _ipAddressToString.ipString, symObjAddr: 0x1F31, symBinAddr: 0x100018218, symSize: 0x0 }
+  - { offset: 0xCC1, size: 0x8, addend: 0x0, symName: _getIPAddressString46, symObjAddr: 0x374, symBinAddr: 0x100004A58, symSize: 0x74 }
+  - { offset: 0xCE6, size: 0x8, addend: 0x0, symName: _getIPAddressString46.ipString, symObjAddr: 0x1F5F, symBinAddr: 0x100018246, symSize: 0x0 }
+  - { offset: 0xD0C, size: 0x8, addend: 0x0, symName: _getIPAddress46, symObjAddr: 0x16C, symBinAddr: 0x100004850, symSize: 0x188 }
+  - { offset: 0xD31, size: 0x8, addend: 0x0, symName: _getIPAddress46.ipAddress, symObjAddr: 0x1F8D, symBinAddr: 0x100018274, symSize: 0x0 }
+  - { offset: 0xFA5, size: 0x8, addend: 0x0, symName: _printIPInfo, symObjAddr: 0x0, symBinAddr: 0x1000046E4, symSize: 0x74 }
+  - { offset: 0xFD7, size: 0x8, addend: 0x0, symName: __OSSwapInt16, symObjAddr: 0xB4, symBinAddr: 0x100004798, symSize: 0x24 }
+  - { offset: 0xFFF, size: 0x8, addend: 0x0, symName: _gethostbyname4, symObjAddr: 0xD8, symBinAddr: 0x1000047BC, symSize: 0x94 }
+  - { offset: 0x1051, size: 0x8, addend: 0x0, symName: _gethostbyname6, symObjAddr: 0x2F4, symBinAddr: 0x1000049D8, symSize: 0x58 }
+  - { offset: 0x10A3, size: 0x8, addend: 0x0, symName: _getIPAddressString4, symObjAddr: 0x34C, symBinAddr: 0x100004A30, symSize: 0x28 }
+  - { offset: 0x10CB, size: 0x8, addend: 0x0, symName: _getIPAddressString6, symObjAddr: 0x3E8, symBinAddr: 0x100004ACC, symSize: 0x28 }
+  - { offset: 0x10F3, size: 0x8, addend: 0x0, symName: _gethostbyname_test, symObjAddr: 0x410, symBinAddr: 0x100004AF4, symSize: 0x40 }
+  - { offset: 0x1108, size: 0x8, addend: 0x0, symName: _gethostbyname_test_lookup, symObjAddr: 0x450, symBinAddr: 0x100004B34, symSize: 0xD4 }
+  - { offset: 0x1251, size: 0x8, addend: 0x0, symName: _setupPollSet, symObjAddr: 0x0, symBinAddr: 0x100004C08, symSize: 0x30 }
+  - { offset: 0x1278, size: 0x8, addend: 0x0, symName: _pollFileDescriptors, symObjAddr: 0xD18, symBinAddr: 0x1000182B0, symSize: 0x0 }
+  - { offset: 0x12CD, size: 0x8, addend: 0x0, symName: _currentPollSetSize, symObjAddr: 0xD10, symBinAddr: 0x1000182A8, symSize: 0x0 }
+  - { offset: 0x12E2, size: 0x8, addend: 0x0, symName: _maxFileDescriptor, symObjAddr: 0xD20, symBinAddr: 0x1000182B8, symSize: 0x0 }
+  - { offset: 0x12EB, size: 0x8, addend: 0x0, symName: _setupPollSet, symObjAddr: 0x0, symBinAddr: 0x100004C08, symSize: 0x30 }
+  - { offset: 0x1300, size: 0x8, addend: 0x0, symName: _addToPollSet, symObjAddr: 0x30, symBinAddr: 0x100004C38, symSize: 0xA8 }
+  - { offset: 0x1324, size: 0x8, addend: 0x0, symName: _growPollSet, symObjAddr: 0xD8, symBinAddr: 0x100004CE0, symSize: 0x100 }
+  - { offset: 0x1356, size: 0x8, addend: 0x0, symName: _removeFromPollSet, symObjAddr: 0x1D8, symBinAddr: 0x100004DE0, symSize: 0x38 }
+  - { offset: 0x137A, size: 0x8, addend: 0x0, symName: _pollCall, symObjAddr: 0x210, symBinAddr: 0x100004E18, symSize: 0xF0 }
+  - { offset: 0x13F2, size: 0x8, addend: 0x0, symName: _safeRecvfrom, symObjAddr: 0x0, symBinAddr: 0x100004F08, symSize: 0x84 }
+  - { offset: 0x1439, size: 0x8, addend: 0x0, symName: _safeRecvfrom, symObjAddr: 0x0, symBinAddr: 0x100004F08, symSize: 0x84 }
+  - { offset: 0x14B5, size: 0x8, addend: 0x0, symName: _safeSendto, symObjAddr: 0x84, symBinAddr: 0x100004F8C, symSize: 0x88 }
+  - { offset: 0x1531, size: 0x8, addend: 0x0, symName: _safeRecv, symObjAddr: 0x10C, symBinAddr: 0x100005014, symSize: 0x74 }
+  - { offset: 0x1591, size: 0x8, addend: 0x0, symName: _safeSend, symObjAddr: 0x180, symBinAddr: 0x100005088, symSize: 0x78 }
+  - { offset: 0x15F1, size: 0x8, addend: 0x0, symName: _srealloc, symObjAddr: 0x1F8, symBinAddr: 0x100005100, symSize: 0x6C }
+  - { offset: 0x1635, size: 0x8, addend: 0x0, symName: _sCalloc, symObjAddr: 0x264, symBinAddr: 0x10000516C, symSize: 0x60 }
+  - { offset: 0x1703, size: 0x8, addend: 0x0, symName: _getLower, symObjAddr: 0x0, symBinAddr: 0x1000051CC, symSize: 0xC }
+  - { offset: 0x171C, size: 0x8, addend: 0x0, symName: _windowSize, symObjAddr: 0x1AF4, symBinAddr: 0x1000181B0, symSize: 0x0 }
+  - { offset: 0x1738, size: 0x8, addend: 0x0, symName: _lower, symObjAddr: 0x1AF8, symBinAddr: 0x1000181B4, symSize: 0x0 }
+  - { offset: 0x175F, size: 0x8, addend: 0x0, symName: _current, symObjAddr: 0x1AFC, symBinAddr: 0x1000181B8, symSize: 0x0 }
+  - { offset: 0x1774, size: 0x8, addend: 0x0, symName: _upper, symObjAddr: 0x1B00, symBinAddr: 0x1000181BC, symSize: 0x0 }
+  - { offset: 0x17AF, size: 0x8, addend: 0x0, symName: _getLower, symObjAddr: 0x0, symBinAddr: 0x1000051CC, symSize: 0xC }
+  - { offset: 0x17C8, size: 0x8, addend: 0x0, symName: _getCurrent, symObjAddr: 0xC, symBinAddr: 0x1000051D8, symSize: 0xC }
+  - { offset: 0x17E1, size: 0x8, addend: 0x0, symName: _getUpper, symObjAddr: 0x18, symBinAddr: 0x1000051E4, symSize: 0xC }
+  - { offset: 0x17FA, size: 0x8, addend: 0x0, symName: _setLower, symObjAddr: 0x24, symBinAddr: 0x1000051F0, symSize: 0x180 }
+  - { offset: 0x1848, size: 0x8, addend: 0x0, symName: _setCurrent, symObjAddr: 0x1A4, symBinAddr: 0x100005370, symSize: 0x1C }
+  - { offset: 0x186C, size: 0x8, addend: 0x0, symName: _setUpper, symObjAddr: 0x1C0, symBinAddr: 0x10000538C, symSize: 0x1C }
+  - { offset: 0x1890, size: 0x8, addend: 0x0, symName: _setupWindow, symObjAddr: 0x1DC, symBinAddr: 0x1000053A8, symSize: 0x4C }
+  - { offset: 0x18B4, size: 0x8, addend: 0x0, symName: _addToWindow, symObjAddr: 0x228, symBinAddr: 0x1000053F4, symSize: 0x184 }
+  - { offset: 0x1902, size: 0x8, addend: 0x0, symName: _getWindowEntry, symObjAddr: 0x3AC, symBinAddr: 0x100005578, symSize: 0xA4 }
+  - { offset: 0x1938, size: 0x8, addend: 0x0, symName: _getEntryLen, symObjAddr: 0x450, symBinAddr: 0x10000561C, symSize: 0xAC }
+  - { offset: 0x196E, size: 0x8, addend: 0x0, symName: _getEntryValid, symObjAddr: 0x4FC, symBinAddr: 0x1000056C8, symSize: 0xAC }
+  - { offset: 0x19A4, size: 0x8, addend: 0x0, symName: _windowOpen, symObjAddr: 0x5A8, symBinAddr: 0x100005774, symSize: 0x1C }
+  - { offset: 0x19BD, size: 0x8, addend: 0x0, symName: _printAll, symObjAddr: 0x5C4, symBinAddr: 0x100005790, symSize: 0x188 }
+  - { offset: 0x1A0B, size: 0x8, addend: 0x0, symName: _printWindowValues, symObjAddr: 0x74C, symBinAddr: 0x100005918, symSize: 0x58 }
+...
